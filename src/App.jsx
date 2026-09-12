@@ -1,122 +1,118 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import "./App.css";
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function formatCurrency(amount) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
-export default App
+function PositionsTable({ positions }) {
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Exchange</th>
+          <th>Net Qty</th>
+          <th>Avg Price</th>
+          <th>Realized P&amp;L</th>
+          <th>Unrealized P&amp;L</th>
+        </tr>
+      </thead>
+      <tbody>
+        {positions.map((position) => (
+          <tr key={`${position.tradingSymbol}-${position.exchange}`}>
+            <td>{position.tradingSymbol}</td>
+            <td>{position.exchange}</td>
+            <td>{position.netQuantity}</td>
+            <td>{formatCurrency(position.averagePrice)}</td>
+            <td>{formatCurrency(position.realizedPnl)}</td>
+            <td>{formatCurrency(position.unrealizedPnl)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function OrdersTable({ orders }) {
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Side</th>
+          <th>Type</th>
+          <th>Qty</th>
+          <th>Price</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {orders.map((order) => (
+          <tr key={order.idempotencyKey}>
+            <td>{order.tradingSymbol}</td>
+            <td>{order.side}</td>
+            <td>{order.orderType}</td>
+            <td>{order.quantity}</td>
+            <td>{order.price === null ? "—" : formatCurrency(order.price)}</td>
+            <td>{order.status}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function useSnapshot() {
+  const [snapshot, setSnapshot] = useState({ positions: [], orders: [], asOf: null });
+  const [connectionStatus, setConnectionStatus] = useState("connecting");
+
+  useEffect(() => {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+    socket.addEventListener("open", () => setConnectionStatus("connected"));
+    socket.addEventListener("close", () => setConnectionStatus("disconnected"));
+    socket.addEventListener("error", () => setConnectionStatus("error"));
+    socket.addEventListener("message", (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === "snapshot") {
+        setSnapshot(message.data);
+      }
+    });
+
+    return () => socket.close();
+  }, []);
+
+  return { snapshot, connectionStatus };
+}
+
+function App() {
+  const { snapshot, connectionStatus } = useSnapshot();
+
+  return (
+    <main id="dashboard">
+      <header>
+        <h1>QTS Dashboard</h1>
+        <span className={`status status-${connectionStatus}`}>{connectionStatus}</span>
+        {snapshot.asOf ? <span className="as-of">as of {snapshot.asOf}</span> : null}
+      </header>
+
+      <section>
+        <h2>Positions</h2>
+        <PositionsTable positions={snapshot.positions} />
+      </section>
+
+      <section>
+        <h2>Open Orders</h2>
+        <OrdersTable orders={snapshot.orders} />
+      </section>
+    </main>
+  );
+}
+
+export default App;

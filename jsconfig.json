@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "checkJs": false,
+    "paths": {
+      "#config/*": ["src/config/*"],
+      "#domain/*": ["src/domain/*"],
+      "#ta/*": ["src/ta/*"],
+      "#regime/*": ["src/regime/*"],
+      "#execution/*": ["src/execution/*"],
+      "#broker/*": ["src/broker/*"],
+      "#state/*": ["src/state/*"],
+      "#backtest/*": ["src/backtest/*"],
+      "#observability/*": ["src/observability/*"],
+      "#server/*": ["src/server/*"]
+    }
+  },
+  "include": ["src/**/*", "scripts/**/*", "tests/**/*"],
+  "exclude": ["node_modules"]
+}

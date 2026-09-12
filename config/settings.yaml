@@ -1,0 +1,49 @@
+database:
+  host: localhost
+  port: 5432
+  database: online_oa
+  user: postgres
+  password: damodar_3690
+
+broker:
+  kite:
+    timeoutMs: 10000
+    ordersPerSecond: 3
+    retryOptions:
+      retries: 3
+      minTimeoutMs: 500
+      factor: 2
+
+execution:
+  grid:
+    spacingMultiplier: 1
+    legsPerSide: 2
+    quantityPerLeg: 100
+    maxPositionQuantityPerSide: 300
+    maxLegsPerSide: 4
+    maxDeviationSpacings: 3
+    maxLossAmount: 25000
+
+  sar:
+    stopMultiplier: 2
+    maxLossAmount: 25000
+    maxPositionQuantity: 300
+    maxPyramidLevels: 2
+    pyramidStepMultiplier: 1
+    quantityPerAdd: 100
+    reversalQuantity: 100
+
+backtest:
+  costs:
+    flatBrokerageFee: 20
+    brokeragePercent: 0.0003
+    statutoryChargeRate: 0.0005
+
+instruments:
+  - instrumentToken: 408065
+    tradingSymbol: CRUDEOIL25DECFUT
+    exchange: MCX
+    segment: FUTURES
+    lotSize: 100
+    tickSize: 1
+    expiry: "2025-12-19"

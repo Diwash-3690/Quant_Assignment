@@ -1,0 +1,161 @@
+import "dotenv/config";
+import pg from "pg";
+import KiteConnectPkg from "kiteconnect";
+import { loadSettings } from "#config/loader.js";
+import { PostgresOrderRepository } from "#state/postgres/order-repository.js";
+import { PostgresPositionRepository } from "#state/postgres/position-repository.js";
+import { OrderStateManager } from "#state/order-state.js";
+import { PositionStateManager, markToMarket } from "#state/position-state.js";
+import { OrderReconciler } from "#state/reconciliation.js";
+import { KiteRestClient } from "#broker/kite/rest-client.js";
+import { KiteWsClient } from "#broker/kite/ws-client.js";
+import { KiteBroker } from "#broker/kite/broker.js";
+import { GridEngine } from "#execution/grid-engine.js";
+import { createLogger } from "#observability/logging.js";
+import { AlertDispatcher, WebhookAlertChannel } from "#observability/alerts.js";
+
+const { KiteConnect, KiteTicker } = KiteConnectPkg;
+
+function isEntryKey(idempotencyKey) {
+  return idempotencyKey.includes("-entry-");
+}
+
+function isExitKey(idempotencyKey) {
+  return idempotencyKey.includes("-exit-");
+}
+
+async function main() {
+  const settings = await loadSettings("config/settings.yaml");
+  const instrument = settings.instruments[0];
+  if (!instrument) {
+    throw new Error("no instrument configured in settings.yaml");
+  }
+
+  const initialReferencePrice = Number(process.env.GRID_INITIAL_REFERENCE_PRICE);
+  const initialAtr = Number(process.env.GRID_INITIAL_ATR);
+  if (!Number.isFinite(initialReferencePrice) || !Number.isFinite(initialAtr)) {
+    throw new Error(
+      "set GRID_INITIAL_REFERENCE_PRICE and GRID_INITIAL_ATR — there is no historical-data " +
+        "fetch built yet to compute these automatically, so they must be supplied manually",
+    );
+  }
+
+  const logger = createLogger({ service: "qts-live" });
+
+  const alertChannels = process.env.ALERT_WEBHOOK_URL
+    ? [new WebhookAlertChannel({ webhookUrl: process.env.ALERT_WEBHOOK_URL })]
+    : [];
+  const alertDispatcher = new AlertDispatcher({ channels: alertChannels, logger });
+
+  const pool = new pg.Pool({
+    host: settings.database.host,
+    port: settings.database.port,
+    database: settings.database.database,
+    user: settings.database.user,
+    password: settings.database.password,
+  });
+
+  const kite = new KiteConnect({ api_key: settings.broker.kite.apiKey });
+  const ticker = new KiteTicker({
+    api_key: settings.broker.kite.apiKey,
+    access_token: settings.broker.kite.accessToken,
+  });
+
+  const restClient = new KiteRestClient({
+    kite,
+    accessToken: settings.broker.kite.accessToken,
+    timeoutMs: settings.broker.kite.timeoutMs,
+    ordersPerSecond: settings.broker.kite.ordersPerSecond,
+    retryOptions: settings.broker.kite.retryOptions,
+  });
+  const wsClient = new KiteWsClient({ ticker, logger });
+  const broker = new KiteBroker({ restClient, wsClient });
+
+  const orderRepository = new PostgresOrderRepository({ pool });
+  const positionRepository = new PostgresPositionRepository({ pool });
+
+  const orderStateManager = new OrderStateManager({ broker, repository: orderRepository });
+  const positionStateManager = new PositionStateManager({ repository: positionRepository });
+  const reconciler = new OrderReconciler({
+    broker,
+    orderStateManager,
+    repository: orderRepository,
+    logger,
+  });
+
+  const gridEngine = new GridEngine({
+    tradingSymbol: instrument.tradingSymbol,
+    exchange: instrument.exchange,
+    tickSize: instrument.tickSize,
+    orderStateManager,
+    config: settings.execution.grid,
+    logger,
+    alertDispatcher,
+  });
+
+  await broker.connect();
+
+  logger.info("reconciling orders from any prior session before starting the grid");
+  const reconciliation = await reconciler.reconcile();
+  logger.info({ reconciliation }, "reconciliation complete");
+
+  gridEngine.start(initialReferencePrice, initialAtr);
+  logger.info(
+    { tradingSymbol: instrument.tradingSymbol, initialReferencePrice, initialAtr },
+    "grid engine started",
+  );
+
+  broker.subscribeTicks([instrument.instrumentToken], async (ticks) => {
+    const tick = ticks.find((t) => t.instrument_token === instrument.instrumentToken);
+    if (!tick) {
+      return;
+    }
+
+    const currentPosition = await positionRepository.find(instrument.tradingSymbol, instrument.exchange);
+    const realizedPnl = currentPosition?.realizedPnl ?? 0;
+    const unrealizedPnl = currentPosition
+      ? markToMarket(currentPosition, tick.last_price, new Date().toISOString()).unrealizedPnl
+      : 0;
+
+    await gridEngine.onTick({ lastPrice: tick.last_price, realizedPnl, unrealizedPnl });
+  });
+
+  broker.onOrderUpdate(async (update) => {
+    const idempotencyKey = update.tag;
+    if (!idempotencyKey || update.status !== "COMPLETE") {
+      return;
+    }
+
+    await positionStateManager.applyFill(instrument.tradingSymbol, instrument.exchange, {
+      side: update.transaction_type,
+      quantity: update.quantity,
+      price: update.average_price,
+      filledAt: new Date().toISOString(),
+    });
+
+    if (isEntryKey(idempotencyKey)) {
+      await gridEngine.onEntryFilled(idempotencyKey);
+    } else if (isExitKey(idempotencyKey)) {
+      await gridEngine.onExitFilled(idempotencyKey, update.average_price);
+    }
+  });
+
+  let shuttingDown = false;
+  async function shutdown(signal) {
+    if (shuttingDown) {
+      return;
+    }
+    shuttingDown = true;
+    logger.warn({ signal }, "shutting down");
+    await broker.disconnect();
+    await pool.end();
+    process.exit(0);
+  }
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+}
+
+main().catch((error) => {
+  console.error("live run failed to start:", error);
+  process.exitCode = 1;
+});

@@ -1,4 +1,3 @@
-import { OrderRepository } from "#state/order-repository.js";
 import { OrderStatus } from "#domain/order.js";
 
 const OPEN_STATUSES = [OrderStatus.PENDING, OrderStatus.OPEN];
@@ -23,7 +22,6 @@ export class OrderRepository {
     throw new Error("findAllOpen() not implemented");
   }
 }
-
 function toRow(order) {
   return {
     idempotency_key: order.idempotencyKey,

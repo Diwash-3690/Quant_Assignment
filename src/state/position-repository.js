@@ -1,4 +1,16 @@
-import { PositionRepository } from "#state/position-repository.js";
+export class PositionRepository {
+  async find(tradingSymbol, exchange) {
+    throw new Error("find() not implemented");
+  }
+
+  async upsert(position) {
+    throw new Error("upsert() not implemented");
+  }
+
+  async findAll() {
+    throw new Error("findAll() not implemented");
+  }
+}
 
 function toRow(position) {
   return {

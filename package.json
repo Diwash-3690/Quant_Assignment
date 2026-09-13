@@ -19,34 +19,34 @@
     "#server/*": "./src/server/*"
   },
   "scripts": {
-    "dev:api": "node scripts/run-dev.js",
-    "dev:web": "vite",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "dev:mock": "node scripts/run-mock.js",
     "seed": "node scripts/seed-demo-data.js",
     "check:db": "node scripts/check-db-connection.js",
-    "build": "vite build",
-    "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint .",
     "backtest": "node scripts/run-backtest.js"
   },
   "dependencies": {
-    "kiteconnect": "latest",
-    "ws": "latest",
-    "zod": "latest",
-    "pino": "latest",
-    "p-retry": "latest",
     "dotenv": "latest",
-    "yaml": "latest",
+    "kiteconnect": "latest",
+    "next": "latest",
+    "p-retry": "latest",
     "pg": "latest",
+    "pino": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "ws": "^8.21.3",
+    "yaml": "latest",
+    "zod": "latest"
   },
   "devDependencies": {
-    "vitest": "latest",
-    "eslint": "latest",
     "@eslint/js": "latest",
-    "vite": "latest",
-    "@vitejs/plugin-react": "latest"
+    "@vitejs/plugin-react": "^6.1.1",
+    "eslint": "latest",
+    "globals": "^17.12.0",
+    "vitest": "latest"
   }
 }

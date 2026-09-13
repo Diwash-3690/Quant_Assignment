@@ -3,6 +3,7 @@
     "target": "ES2024",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "baseUrl": ".",
     "checkJs": false,
     "paths": {
       "#config/*": ["src/config/*"],
@@ -17,6 +18,6 @@
       "#server/*": ["src/server/*"]
     }
   },
-  "include": ["src/**/*", "scripts/**/*", "tests/**/*"],
-  "exclude": ["node_modules"]
+  "include": ["src/**/*", "scripts/**/*", "tests/**/*", "app/**/*"],
+  "exclude": ["node_modules", ".next"]
 }

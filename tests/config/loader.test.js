@@ -2,12 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { loadSettings } from "#config/loader.js";
 
 const validYaml = `
-database:
-  host: localhost
-  port: 5432
-  database: qts
-  user: qts_app
-
 broker:
   kite:
     timeoutMs: 10000
@@ -52,7 +46,7 @@ instruments:
 `;
 
 const validEnv = {
-  DATABASE_PASSWORD: "db-secret",
+  DATABASE_URL: "postgresql://qts_app:db-secret@localhost:5432/qts",
   BROKER_MODE: "live",
   KITE_API_KEY: "api-key",
   KITE_API_SECRET: "api-secret",
@@ -67,11 +61,7 @@ describe("loadSettings", () => {
 
     expect(readFile).toHaveBeenCalledWith("config/settings.yaml", "utf8");
     expect(settings.database).toEqual({
-      host: "localhost",
-      port: 5432,
-      database: "qts",
-      user: "qts_app",
-      password: "db-secret",
+      url: "postgresql://qts_app:db-secret@localhost:5432/qts",
     });
     expect(settings.broker.kite).toMatchObject({
       timeoutMs: 10000,
@@ -110,9 +100,18 @@ describe("loadSettings", () => {
     );
   });
 
+  it("throws a clear error when DATABASE_URL is missing", async () => {
+    const readFile = vi.fn(async () => validYaml);
+    const envMissingDb = { ...validEnv, DATABASE_URL: undefined };
+
+    await expect(loadSettings("config/settings.yaml", { readFile, env: envMissingDb })).rejects.toThrow(
+      "DATABASE_URL",
+    );
+  });
+
   it("defaults to mock broker mode and does not require Kite credentials", async () => {
     const readFile = vi.fn(async () => validYaml);
-    const mockEnv = { DATABASE_PASSWORD: "db-secret" };
+    const mockEnv = { DATABASE_URL: validEnv.DATABASE_URL };
 
     const settings = await loadSettings("config/settings.yaml", { readFile, env: mockEnv });
 
@@ -122,7 +121,7 @@ describe("loadSettings", () => {
 
   it("requires Kite credentials only when BROKER_MODE is live", async () => {
     const readFile = vi.fn(async () => validYaml);
-    const liveEnvMissingSecret = { DATABASE_PASSWORD: "db-secret", BROKER_MODE: "live" };
+    const liveEnvMissingSecret = { DATABASE_URL: validEnv.DATABASE_URL, BROKER_MODE: "live" };
 
     await expect(
       loadSettings("config/settings.yaml", { readFile, env: liveEnvMissingSecret }),

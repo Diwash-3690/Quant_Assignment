@@ -27,7 +27,8 @@
     "check:db": "node scripts/check-db-connection.js",
     "test": "vitest run",
     "lint": "eslint .",
-    "backtest": "node scripts/run-backtest.js"
+    "backtest": "node scripts/run-backtest.js",
+    "postinstall": "node scripts/seed-demo-data.js"
   },
   "dependencies": {
     "dotenv": "latest",

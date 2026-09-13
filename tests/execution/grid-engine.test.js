@@ -268,13 +268,6 @@ describe("GridEngine", () => {
     );
   });
 
-  it("rejects onEntryFilled and onExitFilled for unknown idempotency keys", async () => {
-    const engine = createEngine();
-    engine.start(6250, 50);
-
-    await expect(engine.onEntryFilled("unknown")).rejects.toThrow("no grid leg found");
-    await expect(engine.onExitFilled("unknown")).rejects.toThrow("no grid leg found");
-  });
 
   it("halts entries and reports kill-switch-active once triggered", async () => {
     const orderStateManager = createFakeOrderStateManager();

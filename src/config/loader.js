@@ -15,13 +15,6 @@ const kiteConfigSchema = z.object({
   retryOptions: retryOptionsSchema,
 });
 
-const databaseConfigSchema = z.object({
-  host: z.string().min(1),
-  port: z.number().int().positive(),
-  database: z.string().min(1),
-  user: z.string().min(1),
-});
-
 const gridConfigSchema = z.object({
   spacingMultiplier: z.number().positive(),
   legsPerSide: z.number().int().positive(),
@@ -49,7 +42,6 @@ const backtestCostsConfigSchema = z.object({
 });
 
 const settingsFileSchema = z.object({
-  database: databaseConfigSchema,
   broker: z.object({ kite: kiteConfigSchema }),
   execution: z.object({ grid: gridConfigSchema, sar: sarConfigSchema }),
   backtest: z.object({ costs: backtestCostsConfigSchema }),
@@ -71,7 +63,7 @@ export async function loadSettings(path, { readFile = defaultReadFile, env = pro
   const brokerMode = env.BROKER_MODE === "live" ? "live" : "mock";
 
   return {
-    database: { ...settings.database, password: requireEnv(env, "DATABASE_PASSWORD") },
+    database: { url: requireEnv(env, "DATABASE_URL") },
     broker: {
       mode: brokerMode,
       kite:

@@ -50,6 +50,7 @@ export function createDashboardServer({
 
       sendJson(response, 404, { error: "not found" });
     } catch (error) {
+      console.log("error", error)
       logger.error({ err: error }, "dashboard request failed");
       sendJson(response, 500, { error: "internal server error" });
     }

@@ -41,11 +41,7 @@ async function main() {
   const alertDispatcher = new AlertDispatcher({ channels: alertChannels, logger });
 
   const pool = new pg.Pool({
-    host: settings.database.host,
-    port: settings.database.port,
-    database: settings.database.database,
-    user: settings.database.user,
-    password: settings.database.password,
+    connectionString: settings.database.url,
   });
 
   const priceFeed = new MockPriceFeed({
